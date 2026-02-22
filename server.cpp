@@ -40,6 +40,10 @@ int main() {
     } else {
         buffer[n] = '\0';
         std::cout << "Получено: " << buffer << std::endl;
+
+        sendto(sockfd, buffer, n, 0,
+               (struct sockaddr*)&clientAddr, clientLen);
+        std::cout << "Эхо отправлено" << std::endl;
     }
 
     close(sockfd);
