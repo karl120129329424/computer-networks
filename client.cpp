@@ -16,35 +16,37 @@ int main() {
         return 1;
     }
 
-    std::cout << "Клиент: сокет создан" << std::endl;
-
     sockaddr_in serverAddr{};
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(PORT);
     inet_pton(AF_INET, SERVER_IP, &serverAddr.sin_addr);
 
-    std::cout << "Клиент: адрес сервера настроен (" << SERVER_IP << ":" << PORT << ")" << std::endl;
-
-    const char* message = "Hello from client";
-    
-    sendto(sockfd, message, strlen(message), 0,
-           (struct sockaddr*)&serverAddr, sizeof(serverAddr));
-    
-    std::cout << "Сообщение отправлено: " << message << std::endl;
+    std::cout << "UDP Echo Client. Введите сообщение (Ctrl+D для выхода):" << std::endl;
 
     char buffer[1024];
     socklen_t serverLen = sizeof(serverAddr);
-    
-    int n = recvfrom(sockfd, buffer, sizeof(buffer) - 1, 0,
-                    (struct sockaddr*)&serverAddr, &serverLen);
-    
-    if (n < 0) {
-        std::cerr << "Ошибка recvfrom()" << std::endl;
-    } else {
+
+    while (std::cin.getline(buffer, sizeof(buffer))) {
+        if (strlen(buffer) == 0) continue;
+
+        sendto(sockfd, buffer, strlen(buffer), 0,
+               (struct sockaddr*)&serverAddr, serverLen);
+
+        memset(buffer, 0, sizeof(buffer));
+        int n = recvfrom(sockfd, buffer, sizeof(buffer) - 1, 0,
+                        (struct sockaddr*)&serverAddr, &serverLen);
+        
+        if (n < 0) {
+            std::cerr << "Ошибка recvfrom()" << std::endl;
+            break;
+        }
+        
         buffer[n] = '\0';
         std::cout << "Ответ сервера: " << buffer << std::endl;
+        std::cout << "> ";
     }
 
+    std::cout << "Клиент завершён." << std::endl;
     close(sockfd);
     return 0;
 }
