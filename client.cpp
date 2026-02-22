@@ -32,6 +32,19 @@ int main() {
     
     std::cout << "Сообщение отправлено: " << message << std::endl;
 
+    char buffer[1024];
+    socklen_t serverLen = sizeof(serverAddr);
+    
+    int n = recvfrom(sockfd, buffer, sizeof(buffer) - 1, 0,
+                    (struct sockaddr*)&serverAddr, &serverLen);
+    
+    if (n < 0) {
+        std::cerr << "Ошибка recvfrom()" << std::endl;
+    } else {
+        buffer[n] = '\0';
+        std::cout << "Ответ сервера: " << buffer << std::endl;
+    }
+
     close(sockfd);
     return 0;
 }
