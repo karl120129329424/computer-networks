@@ -28,6 +28,20 @@ int main() {
 
     std::cout << "Сервер запущен на порту " << PORT << std::endl;
 
+    char buffer[1024];
+    sockaddr_in clientAddr{};
+    socklen_t clientLen = sizeof(clientAddr);
+
+    int n = recvfrom(sockfd, buffer, sizeof(buffer) - 1, 0,
+                    (struct sockaddr*)&clientAddr, &clientLen);
+    
+    if (n < 0) {
+        std::cerr << "Ошибка recvfrom()" << std::endl;
+    } else {
+        buffer[n] = '\0';
+        std::cout << "Получено: " << buffer << std::endl;
+    }
+
     close(sockfd);
     return 0;
 }
