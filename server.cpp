@@ -20,6 +20,14 @@ int main() {
     serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
     serverAddr.sin_port = htons(PORT);
 
+    if (bind(sockfd, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
+        std::cerr << "Ошибка bind()" << std::endl;
+        close(sockfd);
+        return 1;
+    }
+
+    std::cout << "Сервер запущен на порту " << PORT << std::endl;
+
     close(sockfd);
     return 0;
 }
