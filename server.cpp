@@ -3,8 +3,9 @@
 #include <netinet/in.h>
 #include <unistd.h>
 
+#define PORT 8080
+
 int main() {
-    // Создаём UDP-сокет
     int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     
     if (sockfd < 0) {
@@ -13,6 +14,11 @@ int main() {
     }
 
     std::cout << "Сервер: сокет создан" << std::endl;
+
+    sockaddr_in serverAddr{};
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    serverAddr.sin_port = htons(PORT);
 
     close(sockfd);
     return 0;
