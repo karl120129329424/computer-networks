@@ -1,6 +1,7 @@
 #include <iostream>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <unistd.h>
 
 #define PORT 8080
@@ -39,7 +40,12 @@ int main() {
         std::cerr << "Ошибка recvfrom()" << std::endl;
     } else {
         buffer[n] = '\0';
-        std::cout << "Получено: " << buffer << std::endl;
+        
+        char clientIP[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &(clientAddr.sin_addr), clientIP, sizeof(clientIP));
+        int clientPort = ntohs(clientAddr.sin_port);
+
+        std::cout << "[" << clientIP << ":" << clientPort << "] -> " << buffer << std::endl;
 
         sendto(sockfd, buffer, n, 0,
                (struct sockaddr*)&clientAddr, clientLen);
