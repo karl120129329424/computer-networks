@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cstring>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -17,13 +18,19 @@ int main() {
 
     std::cout << "Клиент: сокет создан" << std::endl;
 
-    // Настраиваем адрес сервера
     sockaddr_in serverAddr{};
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(PORT);
     inet_pton(AF_INET, SERVER_IP, &serverAddr.sin_addr);
 
     std::cout << "Клиент: адрес сервера настроен (" << SERVER_IP << ":" << PORT << ")" << std::endl;
+
+    const char* message = "Hello from client";
+    
+    sendto(sockfd, message, strlen(message), 0,
+           (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+    
+    std::cout << "Сообщение отправлено: " << message << std::endl;
 
     close(sockfd);
     return 0;
