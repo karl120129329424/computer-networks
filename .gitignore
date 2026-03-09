@@ -1,4 +1,14 @@
-server
+# Скомпилированные файлы
 client
+server
+*.exe
+*.out
 *.o
+*.obj
+*.dSYM
+
 .DS_Store
+
+*.swp
+*.swo
+*~
