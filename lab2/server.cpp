@@ -29,5 +29,46 @@ int main() {
 
     std::cout << "Socket bound to port " << PORT << std::endl;
 
+    if (listen(serverSocket, 1) < 0) {
+        std::cerr << "Error: Failed to listen" << std::endl;
+        close(serverSocket);
+        return 1;
+    }
+
+    std::cout << "Server started, waiting for connections..." << std::endl;
+
+    sockaddr_in clientAddr;
+    socklen_t clientLen = sizeof(clientAddr);
+    int clientSocket = accept(serverSocket, (sockaddr*)&clientAddr, &clientLen);
+    if (clientSocket < 0) {
+        std::cerr << "Error: Failed to accept connection" << std::endl;
+        close(serverSocket);
+        return 1;
+    }
+
+    std::cout << "Client connected" << std::endl;
+
+    Message msg;
+    ssize_t bytesReceived = recv(clientSocket, &msg, sizeof(msg), 0);
+    if (bytesReceived <= 0) {
+        std::cerr << "Error: Failed to receive MSG_HELLO" << std::endl;
+        close(clientSocket);
+        close(serverSocket);
+        return 1;
+    }
+
+    if (msg.type != MSG_HELLO) {
+        std::cerr << "Error: Expected MSG_HELLO, got type " << (int)msg.type << std::endl;
+        close(clientSocket);
+        close(serverSocket);
+        return 1;
+    }
+
+    std::cout << "[" << inet_ntoa(clientAddr.sin_addr) << ":" 
+              << ntohs(clientAddr.sin_port) << "]: " << msg.payload << std::endl;
+
+    close(clientSocket);
+    close(serverSocket);
+
     return 0;
 }
