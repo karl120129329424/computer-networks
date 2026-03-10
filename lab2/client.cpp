@@ -49,5 +49,60 @@ int main() {
 
     std::cout << "Welcome " << msg.payload << std::endl;
 
+    int flags = fcntl(clientSocket, F_GETFL, 0);
+    fcntl(clientSocket, F_SETFL, flags | O_NONBLOCK);
+
+    while (true) {
+        std::memset(&msg, 0, sizeof(msg));
+        bytesReceived = recv(clientSocket, &msg, sizeof(msg), 0);
+
+        if (bytesReceived > 0) {
+            switch (msg.type) {
+                case MSG_TEXT:
+                    std::cout << msg.payload << std::endl;
+                    break;
+
+                case MSG_PONG:
+                    std::cout << "PONG" << std::endl;
+                    break;
+
+                case MSG_BYE:
+                    std::cout << "Server disconnected" << std::endl;
+                    close(clientSocket);
+                    return 0;
+            }
+        }
+
+        std::cout << "> ";
+        std::string input;
+        std::getline(std::cin, input);
+
+        if (input.empty()) {
+            continue;
+        }
+
+        Message sendMsg;
+        std::memset(&sendMsg, 0, sizeof(sendMsg));
+
+        if (input == "/ping") {
+            sendMsg.type = MSG_PING;
+            sendMsg.length = 1;
+        } else if (input == "/quit") {
+            sendMsg.type = MSG_BYE;
+            sendMsg.length = 1;
+        } else {
+            sendMsg.type = MSG_TEXT;
+            sendMsg.length = 1 + input.length();
+            std::strncpy(sendMsg.payload, input.c_str(), MAX_PAYLOAD - 1);
+        }
+
+        send(clientSocket, &sendMsg, sizeof(sendMsg), 0);
+
+        if (sendMsg.type == MSG_BYE) {
+            std::cout << "Disconnected" << std::endl;
+            break;
+        }
+    }
+    close(clientSocket);
     return 0;
 }
