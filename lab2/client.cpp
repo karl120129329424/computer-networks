@@ -102,6 +102,15 @@ int main() {
 
         send(clientSocket, &sendMsg, sizeof(sendMsg), 0);
 
+        if (sendMsg.type == MSG_PING) {
+            usleep(50000);
+            std::memset(&msg, 0, sizeof(msg));
+            bytesReceived = recv(clientSocket, &msg, sizeof(msg), 0);
+            if (bytesReceived > 0 && msg.type == MSG_PONG) {
+                std::cout << "PONG" << std::endl;
+                std::cout.flush();
+            }
+        }
         if (sendMsg.type == MSG_BYE) {
             std::cout << "Disconnected" << std::endl;
             break;
