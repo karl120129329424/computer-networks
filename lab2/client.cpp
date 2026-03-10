@@ -60,20 +60,24 @@ int main() {
             switch (msg.type) {
                 case MSG_TEXT:
                     std::cout << msg.payload << std::endl;
+                    std::cout.flush();
                     break;
 
                 case MSG_PONG:
                     std::cout << "PONG" << std::endl;
+                    std::cout.flush();
                     break;
 
                 case MSG_BYE:
                     std::cout << "Server disconnected" << std::endl;
+                    std::cout.flush();
                     close(clientSocket);
                     return 0;
             }
         }
 
         std::cout << "> ";
+        std::cout.flush();
         std::string input;
         std::getline(std::cin, input);
 
@@ -103,6 +107,7 @@ int main() {
             break;
         }
     }
+    
     close(clientSocket);
     return 0;
 }
