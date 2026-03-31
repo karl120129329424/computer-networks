@@ -1,15 +1,16 @@
 CXX = g++
 
-CXXFLAGS = -std=c++17 -Wall -Wextra
+CXXFLAGS = -std=c++17 -Wall -Wextra -pthread
 
 TARGETS = server client
 
 all: $(TARGETS)
 
-#компиляция сервера
+# Компиляция сервера
 server: server.cpp common.h
 	$(CXX) $(CXXFLAGS) -o server server.cpp
-#компиляция клиента
+
+# Компиляция клиента
 client: client.cpp common.h
 	$(CXX) $(CXXFLAGS) -o client client.cpp
 
