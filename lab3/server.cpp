@@ -29,6 +29,7 @@ void broadcastMessage(Message& msg, int senderSocket);
 void removeClient(int socket);
 
 void* workerThread(void* arg) {
+    (void)arg;
     while (true) {
         pthread_mutex_lock(&queueMutex);
         while (connectionQueue.empty()) {
