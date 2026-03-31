@@ -4,17 +4,25 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-#include <fcntl.h>
+#include <pthread.h>
+#include <sstream>
 #include "common.h"
 
-int main() {
-    int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (clientSocket < 0) {
-        std::cerr << "Error: Failed to create socket" << std::endl;
-        return 1;
-    }
+int clientSocket = -1;
+bool connected = false;
+bool running = true;
+pthread_mutex_t socketMutex = PTHREAD_MUTEX_INITIALIZER;
 
-    std::cout << "Socket created successfully" << std::endl;
+void* receiveThread(void* arg);
+int connectToServer();
+void sendMessage(Message& msg);
+
+int connectToServer() {
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
+        std::cerr << "Error: Failed to create socket" << std::endl;
+        return -1;
+    }
 
     sockaddr_in serverAddr;
     std::memset(&serverAddr, 0, sizeof(serverAddr));
@@ -22,101 +30,164 @@ int main() {
     serverAddr.sin_port = htons(PORT);
     serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-    if (connect(clientSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
+    if (connect(sock, (sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
         std::cerr << "Error: Failed to connect to server" << std::endl;
-        close(clientSocket);
-        return 1;
+        close(sock);
+        return -1;
     }
 
-    std::cout << "Connected" << std::endl;
+    return sock;
+}
 
-    Message helloMsg;
-    std::memset(&helloMsg, 0, sizeof(helloMsg));
-    helloMsg.type = MSG_HELLO;
-    std::string nickname = "User";
-    helloMsg.length = 1 + nickname.length();
-    std::strncpy(helloMsg.payload, nickname.c_str(), MAX_PAYLOAD - 1);
-
-    send(clientSocket, &helloMsg, sizeof(helloMsg), 0);
-
-    Message msg;
-    ssize_t bytesReceived = recv(clientSocket, &msg, sizeof(msg), 0);
-    if (bytesReceived <= 0 || msg.type != MSG_WELCOME) {
-        std::cerr << "Error: Failed to receive MSG_WELCOME" << std::endl;
-        close(clientSocket);
-        return 1;
+void sendMessage(Message& msg) {
+    pthread_mutex_lock(&socketMutex);
+    if (connected && clientSocket >= 0) {
+        send(clientSocket, &msg, sizeof(msg), 0);
     }
+    pthread_mutex_unlock(&socketMutex);
+}
 
-    std::cout << "Welcome " << msg.payload << std::endl;
+void* receiveThread(void* arg) {
+    while (running) {
+        Message msg;
+        pthread_mutex_lock(&socketMutex);
+        if (!connected || clientSocket < 0) {
+            pthread_mutex_unlock(&socketMutex);
+            usleep(100000);  // 100мс
+            continue;
+        }
+        pthread_mutex_unlock(&socketMutex);
 
-    int flags = fcntl(clientSocket, F_GETFL, 0);
-    fcntl(clientSocket, F_SETFL, flags | O_NONBLOCK);
-
-    while (true) {
         std::memset(&msg, 0, sizeof(msg));
-        bytesReceived = recv(clientSocket, &msg, sizeof(msg), 0);
+        ssize_t bytesReceived = recv(clientSocket, &msg, sizeof(msg), 0);
 
-        if (bytesReceived > 0) {
-            switch (msg.type) {
-                case MSG_TEXT:
-                    std::cout << msg.payload << std::endl;
-                    std::cout.flush();
-                    break;
-
-                case MSG_PONG:
-                    std::cout << "PONG" << std::endl;
-                    std::cout.flush();
-                    break;
-
-                case MSG_BYE:
-                    std::cout << "Server disconnected" << std::endl;
-                    std::cout.flush();
-                    close(clientSocket);
-                    return 0;
-            }
+        if (bytesReceived <= 0) {
+            pthread_mutex_lock(&socketMutex);
+            connected = false;
+            pthread_mutex_unlock(&socketMutex);
+            break;
         }
 
-        std::cout << "> ";
-        std::cout.flush();
-        std::string input;
-        std::getline(std::cin, input);
+        switch (msg.type) {
+            case MSG_BROADCAST:
+            case MSG_TEXT:
+                std::cout << "\n" << msg.payload << std::endl;
+                std::cout << "> ";
+                std::cout.flush();
+                break;
 
-        if (input.empty()) {
+            case MSG_PONG:
+                std::cout << "\nPONG" << std::endl;
+                std::cout << "> ";
+                std::cout.flush();
+                break;
+
+            case MSG_CLIENT_JOIN:
+                std::cout << "\n*** " << msg.payload << " ***" << std::endl;
+                std::cout << "> ";
+                std::cout.flush();
+                break;
+
+            case MSG_CLIENT_LEAVE:
+                std::cout << "\n*** " << msg.payload << " ***" << std::endl;
+                std::cout << "> ";
+                std::cout.flush();
+                break;
+
+            case MSG_WELCOME:
+                std::cout << "\n" << msg.payload << std::endl;
+                std::cout << "> ";
+                std::cout.flush();
+                break;
+        }
+    }
+
+    return NULL;
+}
+
+int main() {
+    std::cout << "Starting client..." << std::endl;
+
+    pthread_t recvThread;
+    pthread_create(&recvThread, NULL, receiveThread, NULL);
+
+    while (running) {
+        std::cout << "Connecting to server..." << std::endl;
+        clientSocket = connectToServer();
+
+        if (clientSocket < 0) {
+            std::cout << "Connection failed. Retrying in 2 seconds..." << std::endl;
+            sleep(2);
             continue;
         }
 
-        Message sendMsg;
-        std::memset(&sendMsg, 0, sizeof(sendMsg));
+        pthread_mutex_lock(&socketMutex);
+        connected = true;
+        pthread_mutex_unlock(&socketMutex);
 
-        if (input == "/ping") {
-            sendMsg.type = MSG_PING;
-            sendMsg.length = 1;
-        } else if (input == "/quit") {
-            sendMsg.type = MSG_BYE;
-            sendMsg.length = 1;
-        } else {
-            sendMsg.type = MSG_TEXT;
-            sendMsg.length = 1 + input.length();
-            std::strncpy(sendMsg.payload, input.c_str(), MAX_PAYLOAD - 1);
-        }
+        std::cout << "Connected" << std::endl;
 
-        send(clientSocket, &sendMsg, sizeof(sendMsg), 0);
+        Message helloMsg;
+        std::memset(&helloMsg, 0, sizeof(helloMsg));
+        helloMsg.type = MSG_HELLO;
+        std::string nickname = "User";
+        helloMsg.length = 1 + nickname.length();
+        std::strncpy(helloMsg.payload, nickname.c_str(), MAX_PAYLOAD - 1);
+        send(clientSocket, &helloMsg, sizeof(helloMsg), 0);
 
-        if (sendMsg.type == MSG_PING) {
-            usleep(50000);
-            std::memset(&msg, 0, sizeof(msg));
-            bytesReceived = recv(clientSocket, &msg, sizeof(msg), 0);
-            if (bytesReceived > 0 && msg.type == MSG_PONG) {
-                std::cout << "PONG" << std::endl;
-                std::cout.flush();
+        std::cout << "Waiting for welcome message..." << std::endl;
+
+        while (connected && running) {
+            std::cout << "> ";
+            std::cout.flush();
+            std::string input;
+            std::getline(std::cin, input);
+
+            if (input.empty()) {
+                continue;
+            }
+
+            Message sendMsg;
+            std::memset(&sendMsg, 0, sizeof(sendMsg));
+
+            if (input == "/ping") {
+                sendMsg.type = MSG_PING;
+                sendMsg.length = 1;
+            } else if (input == "/quit") {
+                sendMsg.type = MSG_BYE;
+                sendMsg.length = 1;
+            } else {
+                sendMsg.type = MSG_TEXT;
+                sendMsg.length = 1 + input.length();
+                std::strncpy(sendMsg.payload, input.c_str(), MAX_PAYLOAD - 1);
+            }
+
+            sendMessage(sendMsg);
+
+            if (sendMsg.type == MSG_BYE) {
+                std::cout << "Disconnected" << std::endl;
+                running = false;
+                break;
             }
         }
-        if (sendMsg.type == MSG_BYE) {
-            std::cout << "Disconnected" << std::endl;
-            break;
+
+        pthread_mutex_lock(&socketMutex);
+        if (clientSocket >= 0) {
+            close(clientSocket);
+            clientSocket = -1;
+        }
+        connected = false;
+        pthread_mutex_unlock(&socketMutex);
+
+        if (running) {
+            std::cout << "Connection lost. Reconnecting in 2 seconds..." << std::endl;
+            sleep(2);
         }
     }
-    
-    close(clientSocket);
+
+    running = false;
+    pthread_join(recvThread, NULL);
+
+    std::cout << "Client stopped" << std::endl;
     return 0;
 }
