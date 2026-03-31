@@ -48,6 +48,7 @@ void sendMessage(Message& msg) {
 }
 
 void* receiveThread(void* arg) {
+    (void)arg;
     while (running) {
         Message msg;
         pthread_mutex_lock(&socketMutex);
