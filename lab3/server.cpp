@@ -40,6 +40,7 @@ void* workerThread(void* arg) {
         pthread_mutex_unlock(&queueMutex);
 
         std::cout << "Worker: Processing new connection" << std::endl;
+        std::cout.flush();
 
         sockaddr_in clientAddr;
         socklen_t clientLen = sizeof(clientAddr);
@@ -55,12 +56,14 @@ void* workerThread(void* arg) {
         ssize_t bytesReceived = recv(clientSocket, &msg, sizeof(msg), 0);
         if (bytesReceived <= 0 || msg.type != MSG_HELLO) {
             std::cerr << "Worker: Failed to receive MSG_HELLO" << std::endl;
+            std::cerr.flush();
             close(clientSocket);
             continue;
         }
 
         std::strncpy(client.nickname, msg.payload, 63);
         std::cout << "[" << client.address << ":" << client.port << "]: " << client.nickname << std::endl;
+        std::cout.flush();
 
         Message welcomeMsg;
         std::memset(&welcomeMsg, 0, sizeof(welcomeMsg));
@@ -83,17 +86,20 @@ void* workerThread(void* arg) {
         std::strncpy(joinMsg.payload, joinText.str().c_str(), MAX_PAYLOAD - 1);
         broadcastMessage(joinMsg, clientSocket);
 
+        bool clientWantsToLeave = false;
         while (true) {
             std::memset(&msg, 0, sizeof(msg));
             bytesReceived = recv(clientSocket, &msg, sizeof(msg), 0);
 
             if (bytesReceived == 0) {
                 std::cout << "Client disconnected: " << client.nickname << std::endl;
+                std::cout.flush();
                 break;
             }
 
             if (bytesReceived < 0) {
                 std::cerr << "Error: Failed to receive message" << std::endl;
+                std::cerr.flush();
                 break;
             }
 
@@ -121,15 +127,18 @@ void* workerThread(void* arg) {
 
                 case MSG_BYE: {
                     std::cout << "Received BYE from " << client.nickname << std::endl;
+                    std::cout.flush();
+                    clientWantsToLeave = true;
                     break;
                 }
 
                 default:
                     std::cerr << "Warning: Unknown message type " << (int)msg.type << std::endl;
+                    std::cerr.flush();
                     break;
             }
 
-            if (msg.type == MSG_BYE) {
+            if (clientWantsToLeave) {
                 break;
             }
         }
@@ -173,6 +182,7 @@ void removeClient(int socket) {
 }
 
 int main() {
+    (void)0;
     int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket < 0) {
         std::cerr << "Error: Failed to create socket" << std::endl;
@@ -180,6 +190,7 @@ int main() {
     }
 
     std::cout << "Socket created successfully" << std::endl;
+    std::cout.flush();
 
     sockaddr_in serverAddr;
     std::memset(&serverAddr, 0, sizeof(serverAddr));
@@ -194,6 +205,7 @@ int main() {
     }
 
     std::cout << "Socket bound to port " << PORT << std::endl;
+    std::cout.flush();
 
     if (listen(serverSocket, 10) < 0) {
         std::cerr << "Error: Failed to listen" << std::endl;
@@ -202,6 +214,7 @@ int main() {
     }
 
     std::cout << "Server started, waiting for connections..." << std::endl;
+    std::cout.flush();
 
     pthread_t threads[THREAD_POOL_SIZE];
     for (int i = 0; i < THREAD_POOL_SIZE; i++) {
@@ -209,6 +222,7 @@ int main() {
         pthread_detach(threads[i]);
     }
     std::cout << "Thread pool created with " << THREAD_POOL_SIZE << " threads" << std::endl;
+    std::cout.flush();
 
     while (true) {
         sockaddr_in clientAddr;
@@ -226,6 +240,7 @@ int main() {
         pthread_mutex_unlock(&queueMutex);
 
         std::cout << "New connection queued" << std::endl;
+        std::cout.flush();
     }
 
     close(serverSocket);
