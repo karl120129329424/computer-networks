@@ -2,6 +2,7 @@
 #define COMMON_H
 
 #include <cstdint>
+#include <string> 
 
 #define MAX_PAYLOAD 1024
 #define PORT 8080
@@ -44,6 +45,15 @@ inline void logLayer(int layer, const char* action) {
            layer == 6 ? "Presentation" :
            layer == 7 ? "Application" : "Unknown",
            action);
+}
+
+inline void logLayer(int layer, const std::string& action) {
+    printf("[Layer %d - %s] %s\n", layer, 
+           layer == 4 ? "Transport" :
+           layer == 5 ? "Session" :
+           layer == 6 ? "Presentation" :
+           layer == 7 ? "Application" : "Unknown",
+           action.c_str());
 }
 
 #endif // COMMON_H
