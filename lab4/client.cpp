@@ -11,6 +11,7 @@
 int clientSocket = -1;
 bool connected = false;
 bool running = true;
+char myNickname[MAX_NICKNAME] = "Unknown";
 pthread_mutex_t socketMutex = PTHREAD_MUTEX_INITIALIZER;
 
 void* receiveThread(void* arg);
@@ -54,7 +55,7 @@ void* receiveThread(void* arg) {
         pthread_mutex_lock(&socketMutex);
         if (!connected || clientSocket < 0) {
             pthread_mutex_unlock(&socketMutex);
-            usleep(100000);  // 100мс
+            usleep(100000);
             continue;
         }
         pthread_mutex_unlock(&socketMutex);
@@ -70,8 +71,13 @@ void* receiveThread(void* arg) {
         }
 
         switch (msg.type) {
-            case MSG_BROADCAST:
             case MSG_TEXT:
+                std::cout << "\n" << msg.payload << std::endl;
+                std::cout << "> ";
+                std::cout.flush();
+                break;
+
+            case MSG_PRIVATE:
                 std::cout << "\n" << msg.payload << std::endl;
                 std::cout << "> ";
                 std::cout.flush();
@@ -83,14 +89,14 @@ void* receiveThread(void* arg) {
                 std::cout.flush();
                 break;
 
-            case MSG_CLIENT_JOIN:
+            case MSG_SERVER_INFO:
                 std::cout << "\n*** " << msg.payload << " ***" << std::endl;
                 std::cout << "> ";
                 std::cout.flush();
                 break;
 
-            case MSG_CLIENT_LEAVE:
-                std::cout << "\n*** " << msg.payload << " ***" << std::endl;
+            case MSG_ERROR:
+                std::cout << "\n[ERROR] " << msg.payload << std::endl;
                 std::cout << "> ";
                 std::cout.flush();
                 break;
@@ -108,6 +114,15 @@ void* receiveThread(void* arg) {
 
 int main() {
     std::cout << "Starting client..." << std::endl;
+
+    std::cout << "Enter your nickname: ";
+    std::string nickname;
+    std::getline(std::cin, nickname);
+
+    if (nickname.empty()) {
+        nickname = "Anonymous";
+    }
+    std::strncpy(myNickname, nickname.c_str(), MAX_NICKNAME - 1);
 
     pthread_t recvThread;
     pthread_create(&recvThread, NULL, receiveThread, NULL);
@@ -128,15 +143,14 @@ int main() {
 
         std::cout << "Connected" << std::endl;
 
-        Message helloMsg;
-        std::memset(&helloMsg, 0, sizeof(helloMsg));
-        helloMsg.type = MSG_HELLO;
-        std::string nickname = "User";
-        helloMsg.length = 1 + nickname.length();
-        std::strncpy(helloMsg.payload, nickname.c_str(), MAX_PAYLOAD - 1);
-        send(clientSocket, &helloMsg, sizeof(helloMsg), 0);
+        Message authMsg;
+        std::memset(&authMsg, 0, sizeof(authMsg));
+        authMsg.type = MSG_AUTH;
+        authMsg.length = 1 + strlen(myNickname);
+        std::strncpy(authMsg.payload, myNickname, MAX_PAYLOAD - 1);
+        send(clientSocket, &authMsg, sizeof(authMsg), 0);
 
-        std::cout << "Waiting for welcome message..." << std::endl;
+        std::cout << "Waiting for authentication..." << std::endl;
 
         while (connected && running) {
             std::cout << "> ";
@@ -157,10 +171,15 @@ int main() {
             } else if (input == "/quit") {
                 sendMsg.type = MSG_BYE;
                 sendMsg.length = 1;
+            } else if (input.substr(0, 3) == "/w ") {
+                sendMsg.type = MSG_PRIVATE;
+                std::string payload = input.substr(3);
+                std::strncpy(sendMsg.payload, payload.c_str(), MAX_PAYLOAD - 1);
+                sendMsg.length = 1 + strlen(sendMsg.payload);
             } else {
                 sendMsg.type = MSG_TEXT;
-                sendMsg.length = 1 + input.length();
                 std::strncpy(sendMsg.payload, input.c_str(), MAX_PAYLOAD - 1);
+                sendMsg.length = 1 + strlen(sendMsg.payload);
             }
 
             sendMessage(sendMsg);
