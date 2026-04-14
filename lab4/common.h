@@ -7,6 +7,7 @@
 #define PORT 8080
 #define MAX_CLIENTS 100
 #define THREAD_POOL_SIZE 10
+#define MAX_NICKNAME 32
 
 #pragma pack(push, 1)
 struct Message {
@@ -23,9 +24,26 @@ enum MessageType : uint8_t {
     MSG_PING = 4,
     MSG_PONG = 5,
     MSG_BYE = 6,
-    MSG_BROADCAST = 7,
-    MSG_CLIENT_JOIN = 8,
-    MSG_CLIENT_LEAVE = 9
+    
+    MSG_AUTH = 7,
+    MSG_PRIVATE = 8,
+    MSG_ERROR = 9,
+    MSG_SERVER_INFO = 10
 };
+
+struct Client {
+    int sock;
+    char nickname[MAX_NICKNAME];
+    bool authenticated;
+};
+
+inline void logLayer(int layer, const char* action) {
+    printf("[Layer %d - %s] %s\n", layer, 
+           layer == 4 ? "Transport" :
+           layer == 5 ? "Session" :
+           layer == 6 ? "Presentation" :
+           layer == 7 ? "Application" : "Unknown",
+           action);
+}
 
 #endif // COMMON_H
