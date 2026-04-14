@@ -174,6 +174,12 @@ int main() {
             } else if (input.substr(0, 3) == "/w ") {
                 sendMsg.type = MSG_PRIVATE;
                 std::string payload = input.substr(3);
+    
+                size_t spacePos = payload.find(' ');
+                if (spacePos != std::string::npos) {
+                    payload[spacePos] = ':';
+                }
+    
                 std::strncpy(sendMsg.payload, payload.c_str(), MAX_PAYLOAD - 1);
                 sendMsg.length = 1 + strlen(sendMsg.payload);
             } else {
