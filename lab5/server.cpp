@@ -36,13 +36,6 @@ void sendHistory(int clientSocket, int limit);
 void sendUserList(int clientSocket);
 uint32_t generateMsgId();
 
-uint32_t generateMsgId() {
-    pthread_mutex_lock(&msgIdMutex);
-    uint32_t id = g_msgIdCounter++;
-    pthread_mutex_unlock(&msgIdMutex);
-    return id;
-}
-
 bool isNicknameUnique(const char* nickname) {
     pthread_mutex_lock(&clientsMutex);
     for (auto& client : clients) {
